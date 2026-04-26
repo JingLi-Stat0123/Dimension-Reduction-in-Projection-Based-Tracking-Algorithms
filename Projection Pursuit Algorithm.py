@@ -27,16 +27,13 @@ def projection_index(theta, phi, X):
     return S * D
 # 5. 自适应步长 + 收敛判据
 def adaptive_search(X, init_step=0.2, tol=0.01, max_iter=20):
-
     # 全局粗搜索
     step = init_step
     best_Q = -np.inf
     best_theta, best_phi = 0, 0
     for theta in np.arange(0, np.pi / 2, step):
         for phi in np.arange(0, np.pi / 2, step):
-
             Q = projection_index(theta, phi, X)
-
             if Q > best_Q:
                 best_Q = Q
                 best_theta, best_phi = theta, phi
@@ -55,38 +52,35 @@ def adaptive_search(X, init_step=0.2, tol=0.01, max_iter=20):
                     candidate_Q = Q
                     candidate_theta, candidate_phi = theta, phi
         # 收敛判据（前后两次局部搜索的结果）
+        if candidate_Q > best_Q:
+            best_Q = candidate_Q
+            best_theta = candidate_theta
+            best_phi = candidate_phi
+        # 收敛判断（基于变化率）
         if prev_Q is not None:
             change_rate = abs(candidate_Q - prev_Q) / (abs(prev_Q) + 1e-10)
             if change_rate < tol:
-                print(f"达到精度要求，共迭代 {iteration}次")
-                break
-        # 更新全局最优
-        if candidate_Q > best_Q:
-            best_Q = candidate_Q
-            best_theta, best_phi = candidate_theta, candidate_phi
+                print(f"{iteration}  cahangerate:{change_rate:.5f}")
+                return best_theta, best_phi, best_Q
         # 更新上一轮局部最优
         prev_Q = candidate_Q
     return best_theta, best_phi, best_Q
-
 # 6. 主程序
 def run_pp_model(file_path):
     data_dict = load_data(file_path)
     results = {}
-
     for year, df in data_dict.items():
         # 第一列是城市名
         X = df.iloc[:, 1:4]
         # 标准化
         X = normalize(X).values
         theta, phi, Q = adaptive_search(X)
-        # ===== 最优权重 =====
+        # 最优权重
         a1 = np.cos(theta) * np.cos(phi)
         a2 = np.cos(theta) * np.sin(phi)
         a3 = np.sin(theta)
-
         weights = np.array([a1, a2, a3])
-
-        # ===== 综合指数 =====
+        # 综合指数 
         z = X @ weights
 
         results[year] = {
@@ -95,17 +89,15 @@ def run_pp_model(file_path):
             "index": z,
             "name":df.iloc[:,0].values
         }
-
     return results
-
 
 # 7. 运行
 if __name__ == "__main__":
 
-    file_path = "your_data.xlsx"
+    file_path = "Data_Excerpts.xlsx"
     results = run_pp_model(file_path)
 
-    output_path = "result.xlsx"
+    output_path = "result_end.xlsx"
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         for year, res in results.items():
             df= pd.DataFrame(res["name"],columns=["UA"]).copy()
